@@ -136,6 +136,8 @@
     }
 
     function changeLinea(line) {
+        inputValue = "";
+        filterlineas();
         driverMarkers.forEach((mark) => {
             mark.remove();
         });
@@ -160,6 +162,8 @@
         filteredParadas = storageArr;
     }
     function changeParada(parada) {
+        inputParadas = "";
+        filterParadas();
         parada = paradas.find((x) => x.Descripcion == parada);
         setParada(parada);
     }
