@@ -32,10 +32,9 @@
         <ul>
             {#each filteredData as data}
                 <li style="width: 100%;">
-                    <a
-                        href="#"
+                    <button
                         class="filteredItems"
-                        on:click={() => onClickItem(data)}>{data}</a
+                        on:click={() => onClickItem(data)}>{data}</button
                     >
                 </li>
             {/each}
@@ -48,6 +47,7 @@
         background-color: white;
         padding: 10px;
         border: black 2px solid;
+        font-size: inherit;
     }
     input:focus {
         outline: none;
@@ -59,11 +59,13 @@
         display: flex;
         flex-direction: column;
         background-color: white;
+
+        font-size: 16px;
     }
     .filteredItems {
-        text-decoration: none;
+        text-align: left;
+        background-color: inherit;
         color: black;
-        display: block;
         width: 100%;
         padding: 10px;
         border: solid black 2px;
