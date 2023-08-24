@@ -6,24 +6,36 @@
     export let placeholder;
     export let unfilteredData;
     export let clickFunction;
+    let focus;
+
+    function onBlur(e) {
+        focus = false;
+        e.relatedTarget.click();
+    }
+    function onClickItem(data) {
+        inputValue = data;
+        clickFunction(data);
+    }
 </script>
 
 <div class="inputContainer">
     <input
         type="text"
         {placeholder}
+        on:focus={() => (focus = true)}
+        on:blur={onBlur}
         bind:value={inputValue}
         on:input={() =>
             (filteredData = filterData({ inputValue, unfilteredData }))}
     />
-    {#if filteredData.length > 0}
+    {#if filteredData.length > 0 && focus}
         <ul>
             {#each filteredData as data}
                 <li style="width: 100%;">
                     <a
                         href="#"
                         class="filteredItems"
-                        on:click={() => clickFunction(data)}>{data}</a
+                        on:click={() => onClickItem(data)}>{data}</a
                     >
                 </li>
             {/each}
