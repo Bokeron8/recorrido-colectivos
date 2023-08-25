@@ -17,3 +17,10 @@ export async function getLineRoute(linea) {
     return data.puntos;
 }
 
+export async function getNearestStops(lat, lng) {
+    const response = await fetch(`/api/get-nearest-stops?latitud=${lat}&longitud=${lng}`)
+    const data = await response.json()
+
+    return data.paradas;
+}
+

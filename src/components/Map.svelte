@@ -1,10 +1,11 @@
 <script>
     import L from "leaflet";
-    import { getLineRoute } from "$lib/colectivos";
+    import { getLineRoute, getNearestStops } from "$lib/colectivos";
     import { setContext } from "svelte";
 
     let map;
     let routeLayout = L.polyline(L.latLng([0, 0]), { color: "red" });
+    let userLocation;
 
     function createMap(container) {
         map = L.map(container);
@@ -14,16 +15,46 @@
         }).addTo(map);
         routeLayout.addTo(map);
     }
-
+    function onMapClicked(e) {
+        getNearestStops(e.latlng.lat, e.latlng.lng).then((stops) => {
+            stops.forEach((stop) =>
+                setMark({
+                    latLng: [stop.Latitud, stop.Longitud],
+                    popupText: stop.Lineas,
+                })
+            );
+        });
+    }
     function onLocationFound(e) {
         setMark({ latLng: e.latlng, popupText: "Tu ubicacion" });
+        userLocation = e.latlng;
+
+        /*         getNearestStops(userLocation.lat, userLocation.lng).then((stops) =>
+            stops.forEach((stop) =>
+                setMark({
+                    latLng: [stop.Latitud, stop.Longitud],
+                    popupText: stop.Descripcion,
+                })
+            )
+        ); */
     }
     async function setRoute(line) {
+        /* 
+        En realidad no son rutas innecesarias es que una misma linea puede tener mas de un recorrido
+        Ej: 105C, tiene un recorrido en el que va hasta una parte de la ruta 12 y da media vuelta,
+        y otro en el que va hasta el pericho y recien ahi regresa, pero para simplificar mi trabajo
+        voy a elegir mostrar la ruta mas extensa
+        */
+        const rutasInnecesarias = ["ESCE", "MUDA", "MOCH", "PEPU", "PUVI"];
         const routePoints = await getLineRoute(line);
-        const routePointsLatLngs = routePoints.map((point) => [
-            point.Latitud,
-            point.Longitud,
-        ]);
+        const routePointsLatLngs = routePoints
+            .filter(
+                (point) =>
+                    !rutasInnecesarias.some(
+                        (v) => point.AbreviaturaBanderaSMP === v
+                    )
+            )
+            .map((point) => [point.Latitud, point.Longitud]);
         routeLayout.setLatLngs(routePointsLatLngs);
         map.fitBounds(routeLayout.getBounds());
     }
@@ -34,6 +65,7 @@
     function mapAction(container) {
         createMap(container);
         map.on("locationfound", onLocationFound);
+        map.on("click", onMapClicked);
         map.locate();
     }
 

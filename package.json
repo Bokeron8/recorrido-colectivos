@@ -11,7 +11,8 @@
 		"@sveltejs/adapter-auto": "^2.0.0",
 		"@sveltejs/kit": "^1.20.4",
 		"svelte": "^4.0.5",
-		"vite": "^4.4.2"
+		"vite": "^4.4.2",
+		"workbox-precaching": "^7.0.0"
 	},
 	"type": "module",
 	"dependencies": {
