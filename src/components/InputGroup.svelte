@@ -10,14 +10,17 @@
 
     const setRoute = mapCtx.setRoute;
     const setMark = mapCtx.setMark;
+    const setDriversMark = mapCtx.setDriversMark;
 
+    let lineCode = "";
     async function changeLine(line) {
-        const lineCode = linesData.find(
+        lineCode = linesData.find(
             (x) => x.Descripcion == line
         ).CodigoLineaParada;
         setRoute(lineCode);
         lineStopsData = await getStopPointsByLine(lineCode);
     }
+    let intervalId = null;
     function changeStop(stopDescription) {
         const stopData = lineStopsData.find(
             (stop) => stopDescription == stop.Descripcion
@@ -26,6 +29,11 @@
             latLng: [stopData.Latitud, stopData.Longitud],
             popupText: stopDescription,
         });
+        clearInterval(intervalId);
+        intervalId = setInterval(
+            () => setDriversMark(lineCode, stopData.Identificador),
+            5000
+        );
     }
 </script>
 

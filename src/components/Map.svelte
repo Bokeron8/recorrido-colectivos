@@ -1,6 +1,11 @@
 <script>
     import L from "leaflet";
-    import { getLineRoute, getNearestStops } from "$lib/colectivos";
+    import {
+        getLineRoute,
+        getNearestStops,
+        getArrives,
+        myIcon,
+    } from "$lib/colectivos";
     import { setContext } from "svelte";
 
     let map;
@@ -26,17 +31,12 @@
         });
     }
     function onLocationFound(e) {
-        setMark({ latLng: e.latlng, popupText: "Tu ubicacion" });
+        setMark({
+            latLng: e.latlng,
+            popupText: "Tu ubicacion",
+        });
+        map.setView(e.latlng, 17);
         userLocation = e.latlng;
-
-        /*         getNearestStops(userLocation.lat, userLocation.lng).then((stops) =>
-            stops.forEach((stop) =>
-                setMark({
-                    latLng: [stop.Latitud, stop.Longitud],
-                    popupText: stop.Descripcion,
-                })
-            )
-        ); */
     }
     async function setRoute(line) {
         /* 
@@ -58,9 +58,36 @@
         routeLayout.setLatLngs(routePointsLatLngs);
         map.fitBounds(routeLayout.getBounds());
     }
-    function setMark({ latLng, popupText }) {
-        L.marker(latLng).addTo(map).bindPopup(popupText);
-        map.setView(latLng, 17);
+    function setMark({ latLng, popupText, options }) {
+        return L.marker(latLng, options).addTo(map).bindPopup(popupText);
+    }
+    let driversMark = [];
+    async function setDriversMark(line, stop) {
+        const arrives = await getArrives(line, stop);
+        if (arrives.length > 0) {
+            if (driversMark.length == 0) {
+                arrives.forEach((arrive) => {
+                    const mark = setMark({
+                        latLng: [arrive.Latitud, arrive.Longitud],
+                        popupText: arrive.Arribo,
+                        options: { icon: myIcon },
+                    });
+                    driversMark.push(mark);
+                });
+            } else {
+                driversMark.forEach((mark, i) => {
+                    mark.setLatLng([
+                        arrives[i].Latitud,
+                        arrives[i].Longitud,
+                    ]).setPopupContent(arrives[i].Arribo);
+                });
+            }
+        } else {
+            driversMark.forEach((mark) => {
+                mark.remove();
+            });
+            driversMark = [];
+        }
     }
     function mapAction(container) {
         createMap(container);
@@ -69,7 +96,7 @@
         map.locate();
     }
 
-    setContext("map", { setRoute, setMark });
+    setContext("map", { setRoute, setMark, setDriversMark });
 </script>
 
 <link
