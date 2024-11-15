@@ -11,7 +11,9 @@
 
     function onBlur(e) {
         focus = false;
-        if (e.relatedTarget.tagName == "BUTTON") e.relatedTarget.click();
+        if(e.relatedTarget !== null){
+            if (e.relatedTarget.tagName == "BUTTON") e.relatedTarget.click();
+        }
     }
     function selectItem(data) {
         inputValue = data;
