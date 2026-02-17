@@ -45,7 +45,8 @@
     "extra": {
       "eas": {
         "projectId": "d70e112a-32db-4898-b1a2-6fc1705b9b9d"
-      }
+      },
+      "mapboxToken": "pk.eyJ1IjoiYm9rZXJvbjgiLCJhIjoiY205d3c0MW1mMGpwczJ3cHlwbnRoZTl0aCJ9.G74_MOGAgavwq9hfrtOcuQ"
     },
     "owner": "francozambrano"
   }

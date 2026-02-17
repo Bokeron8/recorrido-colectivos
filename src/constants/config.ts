@@ -10,9 +10,12 @@ export const SOAP_CONFIG = {
   LISTA_CODIGOS_EMPRESA: '358',
 };
 
+import Constants from 'expo-constants';
+
 // Configuración de Mapbox
+// Token is loaded from app.json extra field (set via MAPBOX_PUBLIC_TOKEN env var at build time)
 export const MAPBOX_CONFIG = {
-  ACCESS_TOKEN: process.env.MAPBOX_PUBLIC_TOKEN || '',
+  ACCESS_TOKEN: (Constants.expoConfig?.extra as any)?.mapboxToken || '',
 };
 
 // Configuración del mapa
