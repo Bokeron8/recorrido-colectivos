@@ -10,14 +10,15 @@ export const SOAP_CONFIG = {
   LISTA_CODIGOS_EMPRESA: '358',
 };
 
+// Configuración de Mapbox
+export const MAPBOX_CONFIG = {
+  ACCESS_TOKEN: process.env.MAPBOX_PUBLIC_TOKEN || '',
+};
+
 // Configuración del mapa
 export const MAP_CONFIG = {
-  INITIAL_REGION: {
-    latitude: -27.467917,
-    longitude: -58.831861,
-    latitudeDelta: 0.03,
-    longitudeDelta: 0.03,
-  },
+  INITIAL_CENTER: [-58.831861, -27.467917] as [number, number], // [longitude, latitude] for Mapbox
+  INITIAL_ZOOM: 13,
   UPDATE_INTERVAL: 5000, // 5 segundos
 };
 

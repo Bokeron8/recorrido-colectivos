@@ -1,6 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator, Alert, SafeAreaView, Platform, TouchableOpacity } from 'react-native';
-import MapView, { Marker, Polyline, Callout } from 'react-native-maps';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  SafeAreaView,
+  Platform,
+  TouchableOpacity,
+} from 'react-native';
+import Mapbox, {
+  MapView,
+  Camera,
+  ShapeSource,
+  LineLayer,
+  PointAnnotation,
+  LocationPuck,
+} from '@rnmapbox/maps';
 import { AutoCompleteInput } from './AutoCompleteInput';
 import { useLocation } from '../hooks/useLocation';
 import { useBusTracking } from '../hooks/useBusTracking';
@@ -10,19 +24,29 @@ import {
   Stop,
   RoutePoint,
   Arrival,
-  Coordinate,
 } from '../types';
-import { MAP_CONFIG, ROUTE_COLORS, RUTAS_INNECESARIAS } from '../constants/config';
+import {
+  MAP_CONFIG,
+  ROUTE_COLORS,
+  RUTAS_INNECESARIAS,
+  MAPBOX_CONFIG,
+} from '../constants/config';
 import { Text } from 'react-native';
 
+// Set Mapbox access token
+Mapbox.setAccessToken(MAPBOX_CONFIG.ACCESS_TOKEN);
+
 interface RouteSegment {
-  coordinates: Coordinate[];
+  coordinates: [number, number][];
   color: string;
 }
 
+// Helper to convert from {lat, lng} to [lng, lat]
+const toGeoJSON = (lat: number, lng: number): [number, number] => [lng, lat];
+
 export function MapScreen() {
   const { location, hasPermission } = useLocation();
-  const mapRef = useRef<MapView>(null);
+  const cameraRef = useRef<Camera>(null);
   const [lines, setLines] = useState<Line[]>([]);
   const [selectedLine, setSelectedLine] = useState<string | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
@@ -30,7 +54,6 @@ export function MapScreen() {
   const [routeSegments, setRouteSegments] = useState<RouteSegment[]>([]);
   const [nearbyStops, setNearbyStops] = useState<Stop[]>([]);
   const [isLoadingLines, setIsLoadingLines] = useState(true);
-  const [openCallout, setOpenCallout] = useState<string | null>(null);
 
   const { arrivals } = useBusTracking(
     selectedLine,
@@ -50,11 +73,19 @@ export function MapScreen() {
   const loadLines = async () => {
     try {
       setIsLoadingLines(true);
+      console.log('Iniciando carga de líneas...');
       const result = await colectivosService.getLines();
-      setLines(result.lineas || []);
+      console.log('Líneas cargadas:', result?.lineas?.length || 0);
+
+      if (result && result.lineas && Array.isArray(result.lineas)) {
+        setLines(result.lineas);
+      } else {
+        console.warn('Respuesta de líneas inválida:', result);
+        setLines([]);
+      }
     } catch (error) {
       console.error('Error cargando líneas:', error);
-      Alert.alert('Error', 'No se pudieron cargar las líneas de colectivo');
+      setLines([]);
     } finally {
       setIsLoadingLines(false);
     }
@@ -95,12 +126,11 @@ export function MapScreen() {
         routes.push(currentRoute);
       }
 
-      // Convertir a segmentos con colores
+      // Convertir a segmentos con colores (Mapbox uses [lng, lat])
       const segments: RouteSegment[] = routes.map((route, index) => ({
-        coordinates: route.map((point) => ({
-          latitude: parseFloat(point.Latitud as any),
-          longitude: parseFloat(point.Longitud as any),
-        })),
+        coordinates: route.map((point) =>
+          toGeoJSON(parseFloat(point.Latitud as any), parseFloat(point.Longitud as any))
+        ),
         color: ROUTE_COLORS[index % ROUTE_COLORS.length],
       }));
 
@@ -111,24 +141,21 @@ export function MapScreen() {
         line.CodigoLineaParada
       );
       console.log('Paradas de la línea recibidas:', stopsResult);
-      
-      // Las paradas vienen como un objeto con arrays agrupados por ruta
-      // Necesitamos aplanar todos los arrays en uno solo
+
       let allStops: Stop[] = [];
       if (stopsResult.paradas) {
-        // stopsResult.paradas es un objeto como: { "": [...], "I-17PU": [...] }
         Object.values(stopsResult.paradas).forEach((stopsArray: any) => {
           if (Array.isArray(stopsArray)) {
             allStops = allStops.concat(stopsArray);
           }
         });
       }
-      
+
       console.log('Número de paradas aplanadas:', allStops.length);
       setStops(allStops);
     } catch (error) {
       console.error('Error cargando línea:', error);
-      Alert.alert('Error', 'No se pudo cargar la información de la línea');
+      setStops([]);
     }
   };
 
@@ -138,35 +165,75 @@ export function MapScreen() {
   };
 
   // Manejar click en el mapa
-  const handleMapPress = async (event: any) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
+  const handleMapPress = useCallback(async (event: any) => {
+    const { geometry } = event;
+    if (!geometry || geometry.type !== 'Point') return;
+
+    const [longitude, latitude] = geometry.coordinates;
 
     try {
       console.log('Buscando paradas cerca de:', latitude, longitude);
       const result = await colectivosService.getNearestStops(latitude, longitude);
       console.log('Paradas encontradas:', result.paradas?.length || 0);
-      setNearbyStops(result.paradas || []);
+
+      if (result && result.paradas && Array.isArray(result.paradas)) {
+        setNearbyStops(result.paradas);
+      } else {
+        setNearbyStops([]);
+      }
     } catch (error) {
       console.error('Error obteniendo paradas cercanas:', error);
+      setNearbyStops([]);
     }
-  };
+  }, []);
 
   // Centrar mapa en ubicación del usuario
   const centerOnUser = () => {
-    if (location && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: location.coords.latitude,
-        longitude: location.coords.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      }, 1000);
+    if (location && cameraRef.current) {
+      cameraRef.current.setCamera({
+        centerCoordinate: [location.coords.longitude, location.coords.latitude],
+        zoomLevel: 15,
+        animationMode: 'flyTo',
+        animationDuration: 1000,
+      });
     }
+  };
+
+  // Validar que una coordenada es válida
+  const isValidCoordinate = (lat: any, lng: any): boolean => {
+    const latitude = typeof lat === 'string' ? parseFloat(lat) : lat;
+    const longitude = typeof lng === 'string' ? parseFloat(lng) : lng;
+
+    return (
+      !isNaN(latitude) &&
+      !isNaN(longitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180
+    );
+  };
+
+  // Create GeoJSON FeatureCollection for route lines
+  const getRouteFeatures = () => {
+    return routeSegments.map((segment, index) => ({
+      type: 'Feature' as const,
+      properties: {
+        color: segment.color,
+        index,
+      },
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: segment.coordinates,
+      },
+    }));
   };
 
   if (isLoadingLines) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={{ marginTop: 10 }}>Cargando...</Text>
       </View>
     );
   }
@@ -174,67 +241,107 @@ export function MapScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <MapView
-        ref={mapRef}
         style={styles.map}
-        initialRegion={MAP_CONFIG.INITIAL_REGION}
-        showsUserLocation={hasPermission}
-        showsMyLocationButton={false}
+        styleURL="mapbox://styles/mapbox/streets-v12"
         onPress={handleMapPress}
       >
-        {/* Renderizar segmentos de ruta */}
-        {routeSegments.map((segment: RouteSegment, index: number) => (
-          <React.Fragment key={`route-${index}`}>
-            <Polyline
-              coordinates={segment.coordinates}
-              strokeColor={segment.color}
-              strokeWidth={3}
-            />
-          </React.Fragment>
-        ))}
+        <Camera
+          ref={cameraRef}
+          centerCoordinate={MAP_CONFIG.INITIAL_CENTER}
+          zoomLevel={MAP_CONFIG.INITIAL_ZOOM}
+          animationMode="none"
+        />
 
-        {/* Renderizar paradas cercanas */}
-        {nearbyStops.map((stop: Stop, index: number) => (
-          <Marker
-            coordinate={{
-              latitude: parseFloat(stop.Latitud as any),
-              longitude: parseFloat(stop.Longitud as any),
+        {/* User location puck */}
+        {hasPermission && (
+          <LocationPuck
+            puckBearingEnabled
+            puckBearing="heading"
+            pulsing={{
+              isEnabled: true,
+              color: '#2196F3',
             }}
-            pinColor="blue"
-            title="Parada"
-            description={stop.Lineas || stop.Descripcion}
-            key={`nearby-${index}`}
-          />
-        ))}
-
-        {/* Renderizar parada seleccionada */}
-        {selectedStop && (
-          <Marker
-            coordinate={{
-              latitude: parseFloat(selectedStop.Latitud as any),
-              longitude: parseFloat(selectedStop.Longitud as any),
-            }}
-            pinColor="green"
-            title="Parada Seleccionada"
-            description={selectedStop.Descripcion}
           />
         )}
 
-        {/* Renderizar colectivos en tiempo real */}
-        {arrivals.map((arrival: Arrival, index: number) => (
-          <Marker
-            coordinate={{
-              latitude: parseFloat(arrival.Latitud as any),
-              longitude: parseFloat(arrival.Longitud as any),
+        {/* Route lines */}
+        {routeSegments.map((segment, index) => (
+          <ShapeSource
+            key={`route-${index}`}
+            id={`routeSource-${index}`}
+            shape={{
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'LineString',
+                coordinates: segment.coordinates,
+              },
             }}
-            title="Colectivo"
-            description={arrival.Arribo}
-            key={`bus-${index}`}
           >
-            <View style={styles.busMarker}>
-              <Text style={styles.busMarkerText}>🚌</Text>
-            </View>
-          </Marker>
+            <LineLayer
+              id={`routeLine-${index}`}
+              style={{
+                lineColor: segment.color,
+                lineWidth: 3,
+              }}
+            />
+          </ShapeSource>
         ))}
+
+        {/* Nearby stops */}
+        {nearbyStops
+          .filter((stop) => isValidCoordinate(stop.Latitud, stop.Longitud))
+          .map((stop, index) => (
+            <PointAnnotation
+              key={`nearby-${index}`}
+              id={`nearby-${index}`}
+              coordinate={toGeoJSON(
+                parseFloat(stop.Latitud as any),
+                parseFloat(stop.Longitud as any)
+              )}
+            >
+              <View style={styles.stopMarker}>
+                <Text style={styles.stopMarkerText}>🚏</Text>
+              </View>
+            </PointAnnotation>
+          ))}
+
+        {/* Selected stop */}
+        {selectedStop &&
+          isValidCoordinate(selectedStop.Latitud, selectedStop.Longitud) && (
+            <PointAnnotation
+              key="selected-stop"
+              id="selected-stop"
+              coordinate={toGeoJSON(
+                parseFloat(selectedStop.Latitud as any),
+                parseFloat(selectedStop.Longitud as any)
+              )}
+            >
+              <View style={[styles.stopMarker, styles.selectedStopMarker]}>
+                <Text style={styles.stopMarkerText}>🚏</Text>
+              </View>
+            </PointAnnotation>
+          )}
+
+        {/* Bus markers */}
+        {arrivals
+          .filter((arrival) =>
+            isValidCoordinate(arrival.Latitud, arrival.Longitud)
+          )
+          .map((arrival, index) => (
+            <PointAnnotation
+              key={`bus-${index}`}
+              id={`bus-${index}`}
+              coordinate={toGeoJSON(
+                parseFloat(arrival.Latitud as any),
+                parseFloat(arrival.Longitud as any)
+              )}
+            >
+              <View style={styles.busMarker}>
+                <Text style={styles.busMarkerText}>🚌</Text>
+              </View>
+            </PointAnnotation>
+          ))}
       </MapView>
 
       {/* Controles superiores */}
@@ -297,44 +404,34 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   busMarker: {
-    width: 30,
-    height: 30,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#2196F3',
   },
   busMarkerText: {
-    fontSize: 24,
+    fontSize: 20,
   },
-  calloutContainer: {
-    padding: 12,
-    minWidth: 150,
-    maxWidth: 250,
-  },
-  calloutTitle: {
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  calloutText: {
-    fontSize: 14,
-    color: '#000',
-    fontWeight: '500',
-    paddingRight: 20,
-  },
-  closeButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
+  stopMarker: {
+    width: 36,
+    height: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#666',
   },
-  closeButtonText: {
+  selectedStopMarker: {
+    borderColor: '#4CAF50',
+    borderWidth: 3,
+  },
+  stopMarkerText: {
     fontSize: 18,
-    color: '#666',
-    fontWeight: 'bold',
   },
   myLocationButton: {
     position: 'absolute',

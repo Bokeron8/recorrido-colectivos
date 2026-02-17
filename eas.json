@@ -6,13 +6,25 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "MAPBOX_PUBLIC_TOKEN": "${MAPBOX_PUBLIC_TOKEN}"
+      }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "MAPBOX_PUBLIC_TOKEN": "${MAPBOX_PUBLIC_TOKEN}"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "MAPBOX_PUBLIC_TOKEN": "${MAPBOX_PUBLIC_TOKEN}"
+      }
     }
   },
   "submit": {

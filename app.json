@@ -14,9 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "config": {
-        "googleMapsApiKey": ""
-      },
+      "bundleIdentifier": "com.francozambrano.recorridoscolectivo",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Esta app necesita acceso a tu ubicación para mostrarte las paradas de colectivo cercanas."
       }
@@ -31,16 +29,20 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
       ],
-      "config": {
-        "googleMaps": {
-          "apiKey": ""
-        }
-      },
       "package": "com.francozambrano.recorridoscolectivo"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsImpl": "mapbox",
+          "RNMapboxMapsDownloadToken": "${RNMAPBOX_MAPS_DOWNLOAD_TOKEN}"
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "d70e112a-32db-4898-b1a2-6fc1705b9b9d"
