@@ -26,8 +26,8 @@
         getNearestStops(e.latlng.lat, e.latlng.lng).then((stops) => {
             stops.forEach((stop) =>
                 setMark({
-                    latLng: [stop.Latitud, stop.Longitud],
-                    popupText: stop.Lineas,
+                    latLng: [stop.latitud, stop.longitud],
+                    popupText: stop.lineas,
                 })
             );
         });
@@ -96,20 +96,20 @@
             .filter(
                 (point) =>
                     !rutasInnecesarias.some(
-                        (v) => point.AbreviaturaBanderaSMP === v
+                        (v) => point.abreviaturaBanderaSMP === v
                     )
             )
-        let currentAbreviatura = filteredRoutePoints[0].AbreviaturaBanderaSMP;
+        let currentAbreviatura = filteredRoutePoints[0].abreviaturaBanderaSMP;
         let currentRoutePoints = [];
         const routes = []
         layer.clearLayers();
         filteredRoutePoints.filter((point) => {
-            if (point.AbreviaturaBanderaSMP !== currentAbreviatura) {
+            if (point.abreviaturaBanderaSMP !== currentAbreviatura) {
                 routes.push(currentRoutePoints)
-                currentAbreviatura = point.AbreviaturaBanderaSMP;
+                currentAbreviatura = point.abreviaturaBanderaSMP;
                 currentRoutePoints = [];
             }
-            currentRoutePoints.push([point.Latitud, point.Longitud])
+            currentRoutePoints.push([point.latitud, point.longitud])
         })
         routes.push(currentRoutePoints)
 
@@ -141,8 +141,8 @@
             if (driversMark.length == 0) {
                 arrives.forEach((arrive) => {
                     const mark = setMark({
-                        latLng: [arrive.Latitud, arrive.Longitud],
-                        popupText: arrive.Arribo,
+                        latLng: [arrive.latitud, arrive.longitud],
+                        popupText: arrive.descripcion,
                         options: { icon: myIcon },
                     });
                     driversMark.push(mark);
@@ -150,9 +150,9 @@
             } else {
                 driversMark.forEach((mark, i) => {
                     mark.setLatLng([
-                        arrives[i].Latitud,
-                        arrives[i].Longitud,
-                    ]).setPopupContent(arrives[i].Arribo);
+                        arrives[i].latitud,
+                        arrives[i].longitud,
+                    ]).setPopupContent(arrives[i].descripcion);
                 });
             }
         } else {

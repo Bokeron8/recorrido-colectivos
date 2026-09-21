@@ -15,23 +15,23 @@
     let lineCode = "";
     async function changeLine(line) {
         lineCode = linesData.find(
-            (x) => x.Descripcion == line
-        ).CodigoLineaParada;
+            (x) => x.descripcion == line
+        ).codigo;
         setRoute(lineCode);
         lineStopsData = await getStopPointsByLine(lineCode);
     }
     let intervalId = null;
     function changeStop(stopDescription) {
         const stopData = lineStopsData.find(
-            (stop) => stopDescription == stop.Descripcion
+            (stop) => stopDescription == stop.descripcion
         );
         setMark({
-            latLng: [stopData.Latitud, stopData.Longitud],
+            latLng: [stopData.latitud, stopData.longitud],
             popupText: stopDescription,
         });
         clearInterval(intervalId);
         intervalId = setInterval(
-            () => setDriversMark(lineCode, stopData.Identificador),
+            () => setDriversMark(lineCode, stopData.identificador),
             5000
         );
     }

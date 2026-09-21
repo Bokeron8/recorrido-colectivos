@@ -4,11 +4,11 @@ export function filterData({ inputValue, unfilteredData }) {
     if (inputValue) {
         unfilteredData.forEach((data) => {
             if (
-                data.Descripcion.toLowerCase().includes(
+                data.descripcion.toLowerCase().includes(
                     inputValue.toLowerCase()
                 )
             ) {
-                storageArr = [...storageArr, data.Descripcion];
+                storageArr = [...storageArr, data.descripcion];
             }
         });
     }
