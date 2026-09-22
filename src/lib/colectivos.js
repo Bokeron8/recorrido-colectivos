@@ -52,7 +52,7 @@ export async function getLineRoute(linea) {
     if (!linea) return [];
     const lineaStr = String(linea);
     return cacheFirst(
-        () => repositorio.getRecorridos(lineaStr),
+        () => repositorio.getRecorridos(lineaStr).then(recorridos => recorridos.flatMap(r => r.puntos || [])),
         () => fetch(`/api/get-route?linea=${lineaStr}`).then(r => r.json()).then(d => d.puntos),
         async (puntos) => {
             const data = [{ descripcion: lineaStr, puntos }];

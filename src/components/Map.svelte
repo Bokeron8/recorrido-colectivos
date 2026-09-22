@@ -98,7 +98,8 @@
                     !rutasInnecesarias.some(
                         (v) => point.abreviaturaBanderaSMP === v
                     )
-            )
+            );
+        if (filteredRoutePoints.length === 0) return;
         let currentAbreviatura = filteredRoutePoints[0].abreviaturaBanderaSMP;
         let currentRoutePoints = [];
         const routes = []
