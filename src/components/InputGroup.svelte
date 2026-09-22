@@ -14,9 +14,9 @@
 
     let lineCode = "";
     async function changeLine(line) {
-        lineCode = linesData.find(
-            (x) => x.descripcion == line
-        ).codigo;
+        const found = linesData.find((x) => x.descripcion == line);
+        if (!found) return;
+        lineCode = found.codigo;
         setRoute(lineCode);
         lineStopsData = await getStopPointsByLine(lineCode);
     }

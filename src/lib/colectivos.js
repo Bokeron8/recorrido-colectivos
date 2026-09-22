@@ -24,12 +24,14 @@ async function cacheFirst(cacheFn, fetchFn, addCacheFn, ttl = CACHE_TTL_MS) {
 }
 
 export async function getStopPointsByLine(linea) {
+    if (!linea) return [];
+    const lineaStr = String(linea);
     return cacheFirst(
-        () => repositorio.getCalles(linea),
+        () => repositorio.getCalles(lineaStr),
         () => fetch(`/api/get-stop-points?linea=${linea}`).then(r => r.json()).then(d => d.lineas),
         async (data) => {
             const mapped = data.map(p => ({
-                codigoLinea: linea,
+                codigoLinea: lineaStr,
                 codigoCalle: p.codigo,
                 descripcion: p.descripcion,
                 descripcionLinea: p.descripcion,
@@ -42,17 +44,20 @@ export async function getStopPointsByLine(linea) {
 }
 
 export async function getArrives(linea, parada) {
+    if (!linea || !parada) return [];
     return fetch(`/api/get-arrives?linea=${linea}&parada=${parada}`).then(r => r.json()).then(d => d.arribos || []);
 }
 
 export async function getLineRoute(linea) {
+    if (!linea) return [];
+    const lineaStr = String(linea);
     return cacheFirst(
-        () => repositorio.getRecorridos(linea),
-        () => fetch(`/api/get-route?linea=${linea}`).then(r => r.json()).then(d => d.puntos),
+        () => repositorio.getRecorridos(lineaStr),
+        () => fetch(`/api/get-route?linea=${lineaStr}`).then(r => r.json()).then(d => d.puntos),
         async (puntos) => {
-            const data = [{ descripcion: linea, puntos }];
+            const data = [{ descripcion: lineaStr, puntos }];
             await repositorio.clearRecorridos();
-            await repositorio.addRecorridosApi(data, linea);
+            await repositorio.addRecorridosApi(data, lineaStr);
         },
         RECORRIDO_TTL_MS
     );
@@ -67,19 +72,20 @@ export async function getLineasFromCache(id) {
 }
 
 export async function getRecorridosFromCache(linea) {
+    const lineaStr = String(linea);
     return cacheFirst(
-        () => repositorio.getRecorridos(linea),
+        () => repositorio.getRecorridos(lineaStr),
         async () => {
             const res = await fetch(`/api/get-arrives?handler=RecuperarRecorridos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ codigoLinea: linea })
+                body: JSON.stringify({ codigoLinea: lineaStr })
             });
             const json = await res.json();
             return json;
         },
         async (data) => {
-            await repositorio.addRecorridosApi(data, linea);
+            await repositorio.addRecorridosApi(data, lineaStr);
         },
         RECORRIDO_TTL_MS
     );

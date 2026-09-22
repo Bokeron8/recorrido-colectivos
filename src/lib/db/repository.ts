@@ -79,9 +79,10 @@ class CuandoLlegaRepository {
     }
 
     async getCalles(codigoLinea: string) {
+        const lineaStr = String(codigoLinea);
         try {
             await ensureDb();
-            return db.callesLinea.where('[codigoLinea+codigoCalle]').between([codigoLinea, Dexie.minKey], [codigoLinea, Dexie.maxKey]).toArray();
+            return db.callesLinea.where('[codigoLinea+codigoCalle]').between([lineaStr, Dexie.minKey], [lineaStr, Dexie.maxKey]).toArray();
         } catch (e) {
             logError('getCalles', e);
             return [];
@@ -206,6 +207,7 @@ class CuandoLlegaRepository {
     }
 
     async addRecorridosApi(data: any[], codigoLinea: string): Promise<void> {
+        const lineaStr = String(codigoLinea);
         const colores = ['#0000ff', '#ff0000', '#008000', '#ff00ff', '#000080', '#808000', '#ffa500', '#a52a2a', '#00ffff', '#9932cc', '#e9967a', '#90ee90'];
         let i = 0;
         for (const r of data) {
@@ -227,7 +229,7 @@ class CuandoLlegaRepository {
                 const color = colores[i % colores.length];
                 const createdAt = Date.now();
                 await db.recorridos.add({
-                    codigoLinea,
+                    codigoLinea: lineaStr,
                     id,
                     bandera,
                     descripcion,
@@ -242,14 +244,15 @@ class CuandoLlegaRepository {
                 throw e;
             }
         }
-        console.log(`[Dexie] addRecorridosApi: added ${data.length} recorridos for line ${codigoLinea}`);
+        console.log(`[Dexie] addRecorridosApi: added ${data.length} recorridos for line ${lineaStr}`);
     }
 
     async getRecorridos(codigoLinea: string) {
+        const lineaStr = String(codigoLinea);
         try {
             await ensureDb();
-            const result = await db.recorridos.where('[codigoLinea+id]').between([codigoLinea, Dexie.minKey], [codigoLinea, Dexie.maxKey]).toArray();
-            console.log(`[Dexie] getRecorridos(${codigoLinea}): ${result.length} results`);
+            const result = await db.recorridos.where('[codigoLinea+id]').between([lineaStr, Dexie.minKey], [lineaStr, Dexie.maxKey]).toArray();
+            console.log(`[Dexie] getRecorridos(${lineaStr}): ${result.length} results`);
             return result;
         } catch (e) {
             logError('getRecorridos', e);
