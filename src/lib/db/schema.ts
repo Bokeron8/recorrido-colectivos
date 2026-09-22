@@ -70,3 +70,4 @@ export class CuandoLlegaDB extends Dexie {
 }
 
 export const db = new CuandoLlegaDB();
+export const dbReady = db.open().catch(() => {});
