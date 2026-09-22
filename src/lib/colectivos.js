@@ -1,30 +1,89 @@
 import L from "leaflet";
+import { repositorio } from '$lib/db/repository';
+import { isStale } from '$lib/db/repository';
+
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const RECORRIDO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function cacheFirst(cacheFn, fetchFn, addCacheFn, ttl = CACHE_TTL_MS) {
+    try {
+        const cached = await cacheFn();
+        if (cached.length > 0 && !isStale(cached[0].createdAt, ttl)) {
+            return cached;
+        }
+        const data = await fetchFn();
+        await addCacheFn(data);
+        return data;
+    } catch (e) {
+        const cached = await cacheFn();
+        if (cached.length > 0) return cached;
+        const data = await fetchFn();
+        await addCacheFn(data);
+        return data;
+    }
+}
+
 export async function getStopPointsByLine(linea) {
-    const response = await fetch(`/api/get-stop-points?linea=${linea}`)
-    const data = await response.json()
-
-    return data.lineas;
+    return cacheFirst(
+        () => repositorio.getCalles(linea),
+        () => fetch(`/api/get-stop-points?linea=${linea}`).then(r => r.json()).then(d => d.lineas),
+        async (data) => {
+            const mapped = data.map(p => ({
+                codigoLinea: linea,
+                codigoCalle: p.codigo,
+                descripcion: p.descripcion,
+                descripcionLinea: p.descripcion,
+                createdAt: Date.now()
+            }));
+            await repositorio.clearCalles();
+            await repositorio.addCalles(mapped);
+        }
+    );
 }
+
 export async function getArrives(linea, parada) {
-    const response = await fetch(`/api/get-arrives?linea=${linea}&parada=${parada}`)
-    const data = await response.json()
-
-    return data.arribos ? data.arribos : [];
+    return fetch(`/api/get-arrives?linea=${linea}&parada=${parada}`).then(r => r.json()).then(d => d.arribos || []);
 }
-export async function getLineRoute(linea) {
-    const response = await fetch(`/api/get-route?linea=${linea}`)
-    const data = await response.json()
 
-    return data.puntos;
+export async function getLineRoute(linea) {
+    return cacheFirst(
+        () => repositorio.getRecorridos(linea),
+        () => fetch(`/api/get-route?linea=${linea}`).then(r => r.json()).then(d => d.puntos),
+        async (puntos) => {
+            const data = [{ descripcion: linea, puntos }];
+            await repositorio.clearRecorridos();
+            await repositorio.addRecorridosApi(data, linea);
+        },
+        RECORRIDO_TTL_MS
+    );
 }
 
 export async function getNearestStops(lat, lng) {
-    const response = await fetch(`/api/get-nearest-stops?latitud=${lat}&longitud=${lng}`)
-    const data = await response.json()
-
-    return data.paradas;
+    return fetch(`/api/get-nearest-stops?latitud=${lat}&longitud=${lng}`).then(r => r.json()).then(d => d.paradas);
 }
 
+export async function getLineasFromCache(id) {
+    return repositorio.getLineas(id);
+}
+
+export async function getRecorridosFromCache(linea) {
+    return cacheFirst(
+        () => repositorio.getRecorridos(linea),
+        async () => {
+            const res = await fetch(`/api/get-arrives?handler=RecuperarRecorridos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ codigoLinea: linea })
+            });
+            const json = await res.json();
+            return json;
+        },
+        async (data) => {
+            await repositorio.addRecorridosApi(data, linea);
+        },
+        RECORRIDO_TTL_MS
+    );
+}
 
 const iconURL = new URL('images/colectivo-base.png', import.meta.url).href
 export let myIcon = L.icon({
