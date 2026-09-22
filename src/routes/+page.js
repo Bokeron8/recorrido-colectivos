@@ -5,27 +5,6 @@ export const csr = true;
 import { repositorio } from '$lib/db/repository';
 import { dbReady } from '$lib/db/schema';
 
-async function refreshFromAPI(fetch, id) {
-    try {
-        await dbReady;
-        const res = await fetch('/api/get-lines');
-        const data = await res.json();
-        const lineas = data.lineas.map(l => ({
-            codigoLinea: l.codigo,
-            identificadorCl: id,
-            descripcion: l.descripcion,
-            createdAt: Date.now()
-        }));
-        await repositorio.clearLineas();
-        await repositorio.addLineas(lineas);
-        console.log('[+page] Background refresh done, stored', lineas.length, 'lines');
-        return lineas;
-    } catch (e) {
-        console.error('[+page] Failed to refresh lines', e);
-        return null;
-    }
-}
-
 /** @type {import('./$types').PageLoad} */
 export async function load({ fetch }) {
     await dbReady;
@@ -44,7 +23,6 @@ export async function load({ fetch }) {
                 localStorage.setItem('refrescarLineas', true);
             }
 
-            refreshFromAPI(fetch, id);
             return { linesData: cachedLineas, isFromCache: true };
         } else {
             console.log('[+page] Cache MISS — fetching from API');
