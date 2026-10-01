@@ -21,7 +21,7 @@
 		if (!found) return;
 
 		stopPolling();
-		lineCode = found.codigo;
+		lineCode = found.codigoLinea;
 		setRoute(lineCode);
 		lineStopsData = await getStopPointsByLine(lineCode);
 	}
