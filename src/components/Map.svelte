@@ -1,193 +1,121 @@
 <script>
-    import L from "leaflet";
-    import {
-        getLineRoute,
-        getNearestStops,
-        getArrives,
-        myIcon,
-    } from "$lib/colectivos";
-    import { setContext } from "svelte";
+	import { setContext } from 'svelte';
+	import L from '$lib/map/leaflet';
+	import { busIcon } from '$lib/map/icon';
+	import { arrowWings, groupPointsByFlag } from '$lib/map/geometry';
+	import { getArrives, getLineRoute, getNearestStops } from '$lib/colectivos';
+	import {
+		IGNORED_ROUTE_FLAGS,
+		ROUTE_COLORS,
+		TILE_ATTRIBUTION,
+		TILE_MAX_ZOOM,
+		TILE_URL
+	} from '$lib/config';
 
-    let map;
-    let userLocation;
-    let layer = L.featureGroup();
+	let map;
+	const layer = L.featureGroup();
 
-    function createMap(container) {
-        map = L.map(container);
-        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-            maxZoom: 19,
-            attribution: "© OpenStreetMap",
-        }).addTo(map);
-        
-        layer.addTo(map);
-        
-    }
-    function onMapClicked(e) {
-        getNearestStops(e.latlng.lat, e.latlng.lng).then((stops) => {
-            stops.forEach((stop) =>
-                setMark({
-                    latLng: [stop.latitud, stop.longitud],
-                    popupText: stop.lineas,
-                })
-            );
-        });
-    }
-    function onLocationFound(e) {
-        setMark({
-            latLng: e.latlng,
-            popupText: "Tu ubicacion",
-        });
-        map.setView(e.latlng, 17);
-        userLocation = e.latlng;
-    }
-    /*
-        a b = angle
-        c b = angle
-        angle 
-    */
-    function calculateAngle(p1, p2) {
-    const [x1, y1] = p1;
-    const [x2, y2] = p2;
+	function createMap(container) {
+		map = L.map(container);
+		L.tileLayer(TILE_URL, { maxZoom: TILE_MAX_ZOOM, attribution: TILE_ATTRIBUTION }).addTo(map);
+		layer.addTo(map);
+	}
 
-    // Calculamos el ángulo en radianes usando atan2
-    const angle = Math.atan2(y2 - y1, x2 - x1);  // Ángulo entre los dos puntos
-    const angleDegrees = angle * (180 / Math.PI);  // Convertimos de radianes a grados
+	function onMapClicked(e) {
+		getNearestStops(e.latlng.lat, e.latlng.lng).then((stops) => {
+			stops.forEach((stop) =>
+				setMark({
+					latLng: [stop.latitud, stop.longitud],
+					popupText: stop.lineas
+				})
+			);
+		});
+	}
 
-    // Normalizamos el ángulo a [0, 360]
-    return (angleDegrees + 360) % 360;
-}
+	function onLocationFound(e) {
+		setMark({ latLng: e.latlng, popupText: 'Tu ubicacion' });
+		map.setView(e.latlng, 17);
+	}
 
-    function addArrow(tailOfArrow, tipOfArrow, color="black"){
-        let angle = calculateAngle(tailOfArrow, tipOfArrow);
-        const leftAngle = angle - 145
-        const rightAngle = angle + 145
-        const wingLength = 0.00045;
+	function drawArrow(tail, tip, color) {
+		const [leftWing, rightWing] = arrowWings(tip, tail);
+		L.polyline([leftWing, tip, rightWing], { color }).addTo(layer);
+	}
 
-        const [lat, lon] = [...tipOfArrow]
+	async function setRoute(line) {
+		const routePoints = await getLineRoute(line);
+		const routes = groupPointsByFlag(routePoints, IGNORED_ROUTE_FLAGS);
+		if (routes.length === 0) return;
 
-        const leftAngleRad = leftAngle * Math.PI / 180;
-        const rightAngleRad = rightAngle * Math.PI / 180;
+		layer.clearLayers();
+		routes.forEach((points, i) => {
+			const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+			L.polyline(points, { color }).addTo(layer);
+			points.forEach((point, idx) => {
+				if (idx > 0 && idx % 2 === 0) drawArrow(points[idx - 1], point, color);
+			});
+		});
 
-        const leftWing = {
-            lat: lat + wingLength * Math.cos(leftAngleRad),
-            lon: lon + wingLength * Math.sin(leftAngleRad)
-        };
+		map.fitBounds(layer.getBounds());
+	}
 
+	function setMark({ latLng, popupText, options }) {
+		return L.marker(latLng, options).addTo(map).bindPopup(popupText);
+	}
 
-        const rightWing = {
-            lat: lat + wingLength * Math.cos(rightAngleRad),
-            lon: lon + wingLength * Math.sin(rightAngleRad)
-        };
+	let driversMark = [];
 
-        const arrow = L.polyline([[leftWing.lat, leftWing.lon],tipOfArrow, [rightWing.lat, rightWing.lon]], { color: color});    
-        arrow.addTo(layer);
-    }
-    async function setRoute(line) {
-        /* 
-        En realidad no son rutas innecesarias es que una misma linea puede tener mas de un recorrido
-        Ej: 105C, tiene un recorrido en el que va hasta una parte de la ruta 12 y da media vuelta,
-        y otro en el que va hasta el pericho y recien ahi regresa, pero para simplificar mi trabajo
-        voy a elegir mostrar la ruta mas extensa
-        */
-        const rutasInnecesarias = ["ESCE", "MUDA", "MOCH", "PEPU", "PUVI", "I-17PUERTO", "I-ESDR", "V-DRES", "I-VIPU", "I-PEPU"];
-        const routePoints = await getLineRoute(line);
+	function clearDrivers() {
+		driversMark.forEach((mark) => mark.remove());
+		driversMark = [];
+	}
 
-        const filteredRoutePoints = routePoints
-            .filter(
-                (point) =>
-                    !rutasInnecesarias.some(
-                        (v) => point.abreviaturaBanderaSMP === v
-                    )
-            );
-        if (filteredRoutePoints.length === 0) return;
-        let currentAbreviatura = filteredRoutePoints[0].abreviaturaBanderaSMP;
-        let currentRoutePoints = [];
-        const routes = []
-        layer.clearLayers();
-        filteredRoutePoints.filter((point) => {
-            if (point.abreviaturaBanderaSMP !== currentAbreviatura) {
-                routes.push(currentRoutePoints)
-                currentAbreviatura = point.abreviaturaBanderaSMP;
-                currentRoutePoints = [];
-            }
-            currentRoutePoints.push([point.latitud, point.longitud])
-        })
-        routes.push(currentRoutePoints)
+	async function setDriversMark(line, stop) {
+		const arrives = (await getArrives(line, stop)).reverse();
 
-        const colors = ["red", "green", "blue", "yellow"]
-        let i = 0;
-        routes.forEach((route) => {
-            const routeLayout = L.polyline(route, { color: colors[i] });
-            let pointBefore = [];  
-            routeLayout.addTo(layer);
-            route.forEach((point, idx) => {
-                if(pointBefore.length > 0 && !(idx % 2)){
-                    addArrow(pointBefore, point, colors[i])
-                }
-                pointBefore = point
-            })
-            i++;
-        })
+		if (arrives.length === 0) {
+			clearDrivers();
+			return;
+		}
 
-        map.fitBounds(layer.getBounds())
-    }
-    function setMark({ latLng, popupText, options }) {
-        return L.marker(latLng, options).addTo(map).bindPopup(popupText);
-    }
-    let driversMark = [];
-    async function setDriversMark(line, stop) {
-        let arrives = await getArrives(line, stop);
-        arrives = arrives.reverse();
-        if (arrives.length > 0) {
-            if (driversMark.length == 0) {
-                arrives.forEach((arrive) => {
-                    const mark = setMark({
-                        latLng: [arrive.latitud, arrive.longitud],
-                        popupText: arrive.descripcion,
-                        options: { icon: myIcon },
-                    });
-                    driversMark.push(mark);
-                });
-            } else {
-                driversMark.forEach((mark, i) => {
-                    mark.setLatLng([
-                        arrives[i].latitud,
-                        arrives[i].longitud,
-                    ]).setPopupContent(arrives[i].descripcion);
-                });
-            }
-        } else {
-            driversMark.forEach((mark) => {
-                mark.remove();
-            });
-            driversMark = [];
-        }
-    }
-    function mapAction(container) {
-        createMap(container);
-        map.on("locationfound", onLocationFound);
-        map.on("click", onMapClicked);
-        map.locate();
-    }
+		if (driversMark.length !== arrives.length) {
+			clearDrivers();
+			driversMark = arrives.map((arrive) =>
+				setMark({
+					latLng: [arrive.latitud, arrive.longitud],
+					popupText: arrive.descripcion,
+					options: { icon: busIcon }
+				})
+			);
+			return;
+		}
 
-    setContext("map", { setRoute, setMark, setDriversMark });
+		driversMark.forEach((mark, i) => {
+			mark
+				.setLatLng([arrives[i].latitud, arrives[i].longitud])
+				.setPopupContent(arrives[i].descripcion);
+		});
+	}
+
+	function mapAction(container) {
+		createMap(container);
+		map.on('locationfound', onLocationFound);
+		map.on('click', onMapClicked);
+		map.locate();
+	}
+
+	setContext('map', { setRoute, setMark, setDriversMark });
 </script>
 
-<link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-/>
 <div>
-    <div class="map" use:mapAction />
-    <slot />
+	<div class="map" use:mapAction />
+	<slot />
 </div>
 
 <style>
-    div {
-        height: 100%;
-        width: 100%;
-        z-index: 1;
-    }
+	div {
+		height: 100%;
+		width: 100%;
+		z-index: 1;
+	}
 </style>

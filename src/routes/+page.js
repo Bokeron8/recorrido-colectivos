@@ -2,47 +2,52 @@ export const prerender = true;
 export const ssr = false;
 export const csr = true;
 
+import { browser } from '$app/environment';
 import { repositorio } from '$lib/db/repository';
-import { dbReady } from '$lib/db/schema';
+import { debug } from '$lib/logger';
+
+const byDescription = (a, b) => parseInt(a.descripcion) - parseInt(b.descripcion);
+
+function toLinea(l, identificadorCl) {
+	return {
+		codigoLinea: l.codigo,
+		identificadorCl,
+		descripcion: l.descripcion,
+		createdAt: Date.now()
+	};
+}
 
 /** @type {import('./$types').PageLoad} */
 export async function load({ fetch }) {
-    await dbReady;
+	const id = browser ? window.location.pathname.split('/')[1].toLowerCase() : '';
+	const forceRefresh = browser && localStorage.getItem('refrescarLineas');
 
-    const id = window.location.pathname.split('/')[1].toLowerCase();
-    const refrescarLineas = localStorage.getItem('refrescarLineas');
+	let cached = [];
+	try {
+		cached = await repositorio.getLineas(id);
+	} catch (e) {
+		console.error('[+page] cache read failed', e);
+	}
 
-    try {
-        const cachedLineas = await repositorio.getLineas(id);
+	if (!forceRefresh && cached.length > 0) {
+		cached.sort(byDescription);
+		debug('[+page] cache HIT', cached.length, 'lines');
+		if (browser && repositorio.debeLimpiarTabla(cached[0].createdAt)) {
+			localStorage.setItem('refrescarLineas', true);
+		}
+		return { linesData: cached, isFromCache: true };
+	}
 
-        if (!refrescarLineas && cachedLineas.length > 0) {
-            cachedLineas.sort((a, b) => parseInt(a.descripcion) - parseInt(b.descripcion));
-            console.log('[+page] Cache HIT', cachedLineas.length, 'lines');
-
-            if (cachedLineas[0] && repositorio.debeLimpiarTabla(cachedLineas[0].createdAt)) {
-                localStorage.setItem('refrescarLineas', true);
-            }
-
-            return { linesData: cachedLineas, isFromCache: true };
-        } else {
-            console.log('[+page] Cache MISS — fetching from API');
-            const data = await fetch('/api/get-lines');
-            const json = await data.json();
-            const lineas = json.lineas.map(l => ({
-                codigoLinea: l.codigo,
-                identificadorCl: id,
-                descripcion: l.descripcion,
-                createdAt: Date.now()
-            }));
-            await repositorio.clearLineas();
-            await repositorio.addLineas(lineas);
-            localStorage.removeItem('refrescarLineas');
-            return { linesData: lineas, isFromCache: false };
-        }
-    } catch (e) {
-        console.error('[+page] Failed to load lines', e);
-        const data = await fetch('/api/get-lines');
-        const json = await data.json();
-        return { linesData: json.lineas, isFromCache: false };
-    }
+	try {
+		debug('[+page] cache MISS — fetching from API');
+		const { lineas = [] } = await fetch('/api/get-lines').then((r) => r.json());
+		const mapped = lineas.map((l) => toLinea(l, id));
+		await repositorio.clearLineas();
+		await repositorio.addLineas(mapped);
+		if (browser) localStorage.removeItem('refrescarLineas');
+		return { linesData: mapped, isFromCache: false };
+	} catch (e) {
+		console.error('[+page] fetch failed', e);
+		return { linesData: cached, isFromCache: true };
+	}
 }
