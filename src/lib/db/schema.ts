@@ -51,6 +51,15 @@ export class CuandoLlegaDB extends Dexie {
 			lineas: 'codigoLinea',
 			recorridos: '[codigoLinea+id], codigoLinea, *puntos'
 		});
+
+		// v5: recorridos rows now mirror each API route (and carry paradas),
+		// so drop the old single-row-per-line cache.
+		this.version(5)
+			.stores({
+				lineas: 'codigoLinea',
+				recorridos: '[codigoLinea+id], codigoLinea, *puntos'
+			})
+			.upgrade((tx) => tx.table('recorridos').clear());
 	}
 }
 

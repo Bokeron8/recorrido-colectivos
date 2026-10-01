@@ -55,6 +55,7 @@ class CuandoLlegaRepository {
 	async addRecorridosApi(data: any[], codigoLinea: string): Promise<void> {
 		const lineaStr = String(codigoLinea);
 		await ensureDb();
+		const usedIds = new Set<string>();
 		const recorridos: Recorrido[] = data.map((r, i) => {
 			let id, bandera, descripcion;
 			if (typeof r.descripcion === 'string' && r.descripcion.includes(';')) {
@@ -67,6 +68,9 @@ class CuandoLlegaRepository {
 				bandera = r.bandera || '';
 				descripcion = String(r.descripcion ?? '');
 			}
+			// The API can repeat a codigoBandera; keep one row per returned route.
+			if (usedIds.has(id)) id = `${id}-${i}`;
+			usedIds.add(id);
 			return {
 				codigoLinea: lineaStr,
 				id,
