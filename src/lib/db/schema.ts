@@ -46,14 +46,15 @@ export class CuandoLlegaDB extends Dexie {
 			recorridos: '[codigoLinea+id], codigoLinea, *puntos'
 		});
 
-		// v4: identificadorCl was always empty, key lines by codigoLinea.
+		// v4: identificadorCl was always empty. Dexie cannot change a primary key
+		// in place, so drop `lineas` here and recreate it in v5.
 		this.version(4).stores({
-			lineas: 'codigoLinea',
+			lineas: null,
 			recorridos: '[codigoLinea+id], codigoLinea, *puntos'
 		});
 
-		// v5: recorridos rows now mirror each API route (and carry paradas),
-		// so drop the old single-row-per-line cache.
+		// v5: recreate `lineas` keyed by codigoLinea and drop the old single-row
+		// recorridos cache (rows now mirror each API route and carry paradas).
 		this.version(5)
 			.stores({
 				lineas: 'codigoLinea',
