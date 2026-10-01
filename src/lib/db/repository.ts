@@ -31,10 +31,10 @@ class CuandoLlegaRepository {
 		}
 	}
 
-	async getLineas(identificadorCl: string): Promise<Linea[]> {
+	async getLineas(): Promise<Linea[]> {
 		try {
 			await ensureDb();
-			return db.lineas.where('identificadorCl').equals(identificadorCl).toArray();
+			return db.lineas.toArray();
 		} catch (e) {
 			logError('getLineas', e);
 			return [];

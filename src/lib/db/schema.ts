@@ -2,7 +2,6 @@ import Dexie, { Table } from 'dexie';
 
 export interface Linea {
 	codigoLinea: string;
-	identificadorCl: string;
 	descripcion: string;
 	createdAt: number;
 }
@@ -19,7 +18,7 @@ export interface Recorrido {
 }
 
 export class CuandoLlegaDB extends Dexie {
-	lineas!: Table<Linea, [string, string]>;
+	lineas!: Table<Linea, string>;
 	recorridos!: Table<Recorrido, [string, string]>;
 
 	constructor() {
@@ -44,6 +43,12 @@ export class CuandoLlegaDB extends Dexie {
 		// v3: stops now come from the cached recorridos, drop callesLinea.
 		this.version(3).stores({
 			lineas: '[identificadorCl+codigoLinea], identificadorCl',
+			recorridos: '[codigoLinea+id], codigoLinea, *puntos'
+		});
+
+		// v4: identificadorCl was always empty, key lines by codigoLinea.
+		this.version(4).stores({
+			lineas: 'codigoLinea',
 			recorridos: '[codigoLinea+id], codigoLinea, *puntos'
 		});
 	}

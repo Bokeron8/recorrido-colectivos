@@ -8,10 +8,9 @@ import { debug } from '$lib/logger';
 
 const byDescription = (a, b) => parseInt(a.descripcion) - parseInt(b.descripcion);
 
-function toLinea(l, identificadorCl) {
+function toLinea(l) {
 	return {
-		codigoLinea: l.codigo,
-		identificadorCl,
+		codigoLinea: String(l.codigo),
 		descripcion: l.descripcion,
 		createdAt: Date.now()
 	};
@@ -19,12 +18,11 @@ function toLinea(l, identificadorCl) {
 
 /** @type {import('./$types').PageLoad} */
 export async function load({ fetch }) {
-	const id = browser ? window.location.pathname.split('/')[1].toLowerCase() : '';
 	const forceRefresh = browser && localStorage.getItem('refrescarLineas');
 
 	let cached = [];
 	try {
-		cached = await repositorio.getLineas(id);
+		cached = await repositorio.getLineas();
 	} catch (e) {
 		console.error('[+page] cache read failed', e);
 	}
@@ -41,7 +39,7 @@ export async function load({ fetch }) {
 	try {
 		debug('[+page] cache MISS — fetching from API');
 		const { lineas = [] } = await fetch('/api/get-lines').then((r) => r.json());
-		const mapped = lineas.map((l) => toLinea(l, id));
+		const mapped = lineas.map(toLinea);
 		await repositorio.clearLineas();
 		await repositorio.addLineas(mapped);
 		if (browser) localStorage.removeItem('refrescarLineas');
