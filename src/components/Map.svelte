@@ -58,8 +58,25 @@
 		map.fitBounds(layer.getBounds());
 	}
 
-	function setMark({ latLng, popupText, options }) {
-		return L.marker(latLng, options).addTo(map).bindPopup(popupText);
+	function setMark({ latLng, popupText, label, options }) {
+		const marker = L.marker(latLng, options).addTo(map).bindPopup(popupText);
+		if (label) {
+			marker.bindTooltip(label, {
+				permanent: true,
+				direction: 'top',
+				offset: [0, -22],
+				className: 'bus-label'
+			});
+		}
+		return marker;
+	}
+
+	function arriveLabel(arrive) {
+		return arrive.tiempoRestanteArribo || arrive.descripcion || '';
+	}
+
+	function arrivePopup(arrive) {
+		return [arrive.descripcionLinea, arrive.descripcionBandera].filter(Boolean).join(' · ');
 	}
 
 	let driversMark = [];
@@ -82,7 +99,8 @@
 			driversMark = arrives.map((arrive) =>
 				setMark({
 					latLng: [arrive.latitud, arrive.longitud],
-					popupText: arrive.descripcion,
+					popupText: arrivePopup(arrive),
+					label: arriveLabel(arrive),
 					options: { icon: busIcon }
 				})
 			);
@@ -92,7 +110,8 @@
 		driversMark.forEach((mark, i) => {
 			mark
 				.setLatLng([arrives[i].latitud, arrives[i].longitud])
-				.setPopupContent(arrives[i].descripcion);
+				.setPopupContent(arrivePopup(arrives[i]))
+				.setTooltipContent(arriveLabel(arrives[i]));
 		});
 	}
 
@@ -116,5 +135,16 @@
 		height: 100%;
 		width: 100%;
 		z-index: 1;
+	}
+
+	:global(.bus-label) {
+		background: #fff;
+		color: #111;
+		font-size: 11px;
+		font-weight: 600;
+		padding: 1px 4px;
+		border-radius: 4px;
+		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+		white-space: nowrap;
 	}
 </style>
