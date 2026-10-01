@@ -1,38 +1,53 @@
-# create-svelte
+# Recorrido Colectivos — Corrientes
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/master/packages/create-svelte).
+PWA para consultar los recorridos y la ubicación de los colectivos de Corrientes
+capital. Muestra las líneas, las paradas de cada línea y los colectivos en tiempo
+real sobre un mapa Leaflet.
 
-## Creating a project
+## Stack
 
-If you're seeing this, you've probably already done this step. Congrats!
+- **SvelteKit 1** + **Svelte 4** (`ssr = false`, `prerender = true`)
+- **Leaflet** para el mapa
+- **Dexie / IndexedDB** para caché en el cliente
+- **Service Worker** (Cache API) con precache del shell y runtime cache de tiles
+- API de `cuandollega.smartmovepro.net`, proxeada por las rutas `/api/*`
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
-
-# create a new project in my-app
-npm create svelte@latest my-app
-```
-
-## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Comandos
 
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
+pnpm install
+pnpm dev        # servidor de desarrollo
+pnpm build      # build de producción
+pnpm preview    # previsualizar el build
+pnpm check      # svelte-check (tipos y a11y)
+pnpm lint       # prettier --check + eslint
+pnpm format     # aplicar prettier
 ```
 
-## Building
+## Estructura
 
-To create a production version of your app:
-
-```bash
-npm run build
+```
+src/
+  service-worker.js      precache + runtime cache
+  components/            Map, Input, InputGroup
+  lib/
+    config.js            constantes compartidas (TTL, colores, tiles)
+    cache.js             cacheFirst + isStale
+    colectivos.js        capa de recursos (API + caché)
+    db/
+      schema.ts          tablas Dexie
+      repository.ts      operaciones sobre IndexedDB
+    map/                 setup de Leaflet, icono y geometría
+  routes/
+    +page.js             carga de líneas con caché
+    +page.svelte
+    api/*                proxy a la API externa (mantiene el CSRF)
 ```
 
-You can preview the production build with `npm run preview`.
+## Notas
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.
+- Las rutas en `src/routes/api/` se conservan aunque no todas se usen hoy; sirven
+  como proxy y punto de extensión.
+- La caché de paradas/recorridos es por línea (`codigoLinea`), no global.
+- Elegí un adapter explícito (`@sveltejs/adapter-node`, `adapter-vercel`, etc.)
+  según el hosting antes de desplegar; los endpoints `/api/*` requieren servidor.
