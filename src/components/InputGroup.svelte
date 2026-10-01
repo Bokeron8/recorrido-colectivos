@@ -42,6 +42,7 @@
 		});
 
 		stopPolling();
+		setDriversMark(lineCode, stopData.identificador);
 		intervalId = setInterval(() => setDriversMark(lineCode, stopData.identificador), 1000 * 60);
 	}
 
