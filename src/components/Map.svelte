@@ -3,7 +3,7 @@
 	import L from '$lib/map/leaflet';
 	import { busIcon } from '$lib/map/icon';
 	import { arrowWings, groupPointsByFlag } from '$lib/map/geometry';
-	import { getArrives, getLineRoute, getNearestStops } from '$lib/colectivos';
+	import { getArrives, getNearestStops } from '$lib/colectivos';
 	import {
 		IGNORED_ROUTE_FLAGS,
 		ROUTE_COLORS,
@@ -42,8 +42,7 @@
 		L.polyline([leftWing, tip, rightWing], { color }).addTo(layer);
 	}
 
-	async function setRoute(line) {
-		const routePoints = await getLineRoute(line);
+	function setRoute(routePoints) {
 		const routes = groupPointsByFlag(routePoints, IGNORED_ROUTE_FLAGS);
 		if (routes.length === 0) return;
 

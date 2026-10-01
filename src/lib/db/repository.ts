@@ -2,7 +2,7 @@ import { ROUTE_COLORS } from '$lib/config';
 import { isStale } from '$lib/cache';
 import { debug } from '$lib/logger';
 import { db, dbReady } from './schema';
-import type { Linea, CalleLinea, Recorrido } from './schema';
+import type { Linea, Recorrido } from './schema';
 
 async function ensureDb(): Promise<void> {
 	try {
@@ -51,38 +51,6 @@ class CuandoLlegaRepository {
 		}
 	}
 
-	// --- CALLES / PARADAS ---
-	async addCalles(calles: CalleLinea[]): Promise<void> {
-		try {
-			await ensureDb();
-			await db.callesLinea.bulkAdd(calles);
-			debug(`[Dexie] Added ${calles.length} calles`);
-		} catch (e) {
-			logError('addCalles', e);
-			throw e;
-		}
-	}
-
-	async getCalles(codigoLinea: string): Promise<CalleLinea[]> {
-		try {
-			await ensureDb();
-			return db.callesLinea.where('codigoLinea').equals(String(codigoLinea)).toArray();
-		} catch (e) {
-			logError('getCalles', e);
-			return [];
-		}
-	}
-
-	async deleteCallesByLine(codigoLinea: string): Promise<void> {
-		try {
-			await ensureDb();
-			await db.callesLinea.where('codigoLinea').equals(String(codigoLinea)).delete();
-		} catch (e) {
-			logError('deleteCallesByLine', e);
-			throw e;
-		}
-	}
-
 	// --- RECORRIDOS ---
 	async addRecorridosApi(data: any[], codigoLinea: string): Promise<void> {
 		const lineaStr = String(codigoLinea);
@@ -110,7 +78,7 @@ class CuandoLlegaRepository {
 				color: ROUTE_COLORS[i % ROUTE_COLORS.length]
 			};
 		});
-		await db.recorridos.bulkAdd(recorridos);
+		await db.recorridos.bulkPut(recorridos);
 		debug(`[Dexie] addRecorridosApi: added ${recorridos.length} recorridos for line ${lineaStr}`);
 	}
 

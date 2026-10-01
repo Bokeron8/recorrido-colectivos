@@ -7,17 +7,6 @@ export interface Linea {
 	createdAt: number;
 }
 
-export interface CalleLinea {
-	codigoLinea: string;
-	codigoCalle: string;
-	identificador: string;
-	descripcion: string;
-	descripcionLinea: string;
-	latitud: number;
-	longitud: number;
-	createdAt: number;
-}
-
 export interface Recorrido {
 	codigoLinea: string;
 	id: string;
@@ -31,7 +20,6 @@ export interface Recorrido {
 
 export class CuandoLlegaDB extends Dexie {
 	lineas!: Table<Linea, [string, string]>;
-	callesLinea!: Table<CalleLinea, [string, string]>;
 	recorridos!: Table<Recorrido, [string, string]>;
 
 	constructor() {
@@ -50,6 +38,12 @@ export class CuandoLlegaDB extends Dexie {
 		this.version(2).stores({
 			lineas: '[identificadorCl+codigoLinea], identificadorCl',
 			callesLinea: '[codigoLinea+codigoCalle], codigoLinea',
+			recorridos: '[codigoLinea+id], codigoLinea, *puntos'
+		});
+
+		// v3: stops now come from the cached recorridos, drop callesLinea.
+		this.version(3).stores({
+			lineas: '[identificadorCl+codigoLinea], identificadorCl',
 			recorridos: '[codigoLinea+id], codigoLinea, *puntos'
 		});
 	}

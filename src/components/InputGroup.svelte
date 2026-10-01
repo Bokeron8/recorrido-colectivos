@@ -1,7 +1,7 @@
 <script>
 	import { getContext, onDestroy } from 'svelte';
 	import Input from './Input.svelte';
-	import { getStopPointsByLine } from '$lib/colectivos';
+	import { getLineData } from '$lib/colectivos';
 
 	export let linesData;
 	let lineStopsData = [];
@@ -22,8 +22,14 @@
 
 		stopPolling();
 		lineCode = found.codigoLinea;
-		setRoute(lineCode);
-		lineStopsData = await getStopPointsByLine(lineCode);
+
+		try {
+			const { puntos, paradas } = await getLineData(lineCode);
+			setRoute(puntos);
+			lineStopsData = paradas;
+		} catch (e) {
+			console.error('[InputGroup] failed to load line data', e);
+		}
 	}
 
 	function changeStop(stopDescription) {
@@ -46,7 +52,7 @@
 	<Input placeholder="Nombre de la linea" unfilteredData={linesData} clickFunction={changeLine} />
 	{#if lineStopsData.length > 0}
 		<Input
-			placeholder="Nombre de las calles"
+			placeholder="Nombre de la parada"
 			unfilteredData={lineStopsData}
 			clickFunction={changeStop}
 		/>
